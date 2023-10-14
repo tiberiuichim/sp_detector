@@ -1,0 +1,44 @@
+// mqtt_client.subscribe(TOPIC);
+// client.unsubscribe("/hello");
+// Show initial display buffer contents on the screen --
+// the library initializes this with an Adafruit splash screen.
+// mqtt_client.onMessage(messageReceived);
+// void messageReceived(String &topic, String &payload) {
+//   Serial.println("incoming: " + topic + " - " + payload);
+//   // Note: Do not use the client in the callback to publish, subscribe or
+//   // unsubscribe as it may cause deadlocks when other things arrive while
+//   // sending and receiving acknowledgments. Instead, change a global variable,
+//   // or push to a queue and handle it in the loop after calling `client.loop()`.
+// }
+// //=========== Funktion show on Display =====
+// void showonoled() {
+//   Serial.println("Display on external");
+//   u8g2.clearBuffer();
+//   u8g2_prepare();
+// *** work not correct with ESP32 ***
+//for the ESP32 u have to change the 1023 to 4095
+// ***********************************
+//   u8g2.drawStr(0,36, "Voltage");
+//   u8g2.drawStr(70, 36, $vin.c_str());
+//   u8g2.sendBuffer();
+//   delay(500);
+// }
+// Serial.print("INPUT V= ");
+// Serial.println(vin, 4);
+// U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+//=========== Funktion init Display ========
+// void u8g2_prepare(void) {
+//   u8g2.setFont(u8g2_font_6x10_tf);
+//   u8g2.setFontRefHeightExtendedText();
+//   u8g2.setDrawColor(1);
+//   u8g2.setFontPosTop();
+//   u8g2.setFontDirection(0);
+// }
+// u8g2.begin();                   // init Display
+// float R1 = 100000;  // Resistor R1 100k
+// float R2 = 10000;   // Resistor R2 10k
+// #include <U8g2lib.h>
+// Easy Voltmeter with ESP8266 and Oled SH1106 and 2 Resistors 100k + 10k
+// This can be used to messure up to 33V
+// const char MQTT_SERVER[] = "public.cloud.shiftr.io";
+
