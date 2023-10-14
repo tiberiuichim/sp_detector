@@ -1,3 +1,43 @@
+IPAddress MQTT_IP(192, 168, 100, 203);
+const int MQTT_PORT = 1883;
+
+const char TOPIC[] = "/voltage";
+
+  // doc.printTo(data, doc.measureLength() + 1);
+  // doc.prettyPrintTo(Serial);
+
+// function called to publish the temperature and the humidity
+  // create a JSON object
+  // doc : https://github.com/bblanchon/ArduinoJson/wiki/API%20Reference
+  // StaticJsonBuffer<200> jsonBuffer;
+  // JsonObject root = jsonBuffer.createObject();
+  // INFO: the data must be converted into a string; a problem occurs when using floats...
+// MQTTClient mqtt_client;
+void connect_mqtt() {
+  // init the MQTT connection
+  pubsub_client.setServer(MQTT_SERVER_IP, MQTT_SERVER_PORT);
+  pubsub_client.setCallback(callback);
+
+
+  mqtt_client.begin(MQTT_IP, MQTT_PORT, net);
+  Serial.print("checking wifi...");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+
+  Serial.print("\nconnecting to mqtt server...");
+
+  while (!mqtt_client.connect("arduino", "public", "public")) {
+    Serial.print(".");
+    delay(1000);
+  }
+
+  Serial.println("\nconnected to mqtt broker!");
+  // mqtt_client.publish("homeassistant/sensor/solar_power_detector_001/config", message.c_str());
+}
+
 // mqtt_client.subscribe(TOPIC);
 // client.unsubscribe("/hello");
 // Show initial display buffer contents on the screen --
@@ -42,3 +82,25 @@
 // This can be used to messure up to 33V
 // const char MQTT_SERVER[] = "public.cloud.shiftr.io";
 
+  // mqtt_client.loop();
+  // if (!mqtt_client.connected()) {
+  //   connect_mqtt();
+  // }
+  //if (millis() - lastMillis > 1000) {
+  //  lastMillis = millis();
+  //  if (!mqtt_client.publish("solar_power_detector/voltage/get", $vin)) {
+  //    Serial.println("Failed to publish");
+  //  };
+
+  //  mqtt_client.publish(TOPIC, $vin);  // publish a message roughly every second.
+  //}
+
+
+  // Serial.println("checking wifi...");
+  // WiFi.begin(ssid, pass);
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   Serial.println(WiFi.status());
+  //   delay(1000);
+  // }
+  // Serial.print("Connected, IP address: ");
+  // Serial.println(WiFi.localIP());

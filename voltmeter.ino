@@ -5,8 +5,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP8266WiFi.h>
-#include <MQTT.h>
-#include "wifi_credentials.h"
+// #include <MQTT.h>
+#include "config.h"
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
 
 #define SCREEN_WIDTH 128     // OLED display width, in pixels
 #define SCREEN_HEIGHT 32     // OLED display height, in pixels
@@ -15,16 +17,11 @@
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-WiFiClient net;
-MQTTClient mqtt_client;
+WiFiClient wifiClient;
+PubSubClient pubsub_client(wifiClient);
 
 // Constants
 int analogInput = A0;
-
-const char TOPIC[] = "/voltage";
-
-IPAddress MQTT_IP(192, 168, 100, 203);
-const int MQTT_PORT = 1883;
 
 float vout = 0.0;
 float vin = 0.0;
@@ -36,54 +33,70 @@ int value = 0;
 String $vin = "0";
 unsigned long lastMillis = 0;
 
-String message = "{"
-                 "\"name\": \"Solar Power Detector\","
-                 "\"unique_id\": \"solar_power_detector_001\","
-                 "\"state_topic\": \"solar_power_detector/voltage\","
-                 "\"availability_topic\": \"solar_power_detector/status\","
-                 "\"payload_available\": \"online\","
-                 "\"payload_not_available\": \"offline\","
-                 "\"device\": {"
-                 "\"identifiers\": \"solar_power_detector_001\","
-                 "\"manufacturer\": \"Tiberiu\","
-                 "\"name\": \"Solar Power Detector\","
-                 "\"model\": \"ESP8266\","
-                 "\"sw_version\": \"1.0\""
-                 "},"
-                 "\"device_class\": \"voltage\","
-                 "\"unit_of_measurement\": \"V\""
-                 "}";
+void publishData(float p_voltage) {
+  DynamicJsonDocument doc(200);
+  doc["voltage"] = (String)p_voltage;
 
-void connect_mqtt() {
-  mqtt_client.begin(MQTT_IP, MQTT_PORT, net);
-  Serial.print("checking wifi...");
+  serializeJson(doc, Serial);
+  Serial.println("");
 
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(1000);
+  char data[200];
+  serializeJson(doc, data);
+
+  pubsub_client.publish(MQTT_SENSOR_TOPIC, data, true);
+  yield();
+}
+
+void publishConfig() {
+  int len = CONFIG_MESSAGE.length();
+  char arrMsg[len];
+  CONFIG_MESSAGE.toCharArray(arrMsg, len);
+
+  if (!pubsub_client.publish(CONFIG_PATH, arrMsg, true)) {
+    Serial.println("Unable to publish config");
+  };
+  yield();
+}
+
+
+// function called when a MQTT message arrived
+void callback(char* p_topic, byte* p_payload, unsigned int p_length) {
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!pubsub_client.connected()) {
+    Serial.println("INFO: Attempting MQTT connection...");
+    // Attempt to connect
+    if (pubsub_client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD)) {
+      Serial.println("INFO: connected");
+    } else {
+      Serial.print("ERROR: failed, rc=");
+      Serial.print(pubsub_client.state());
+      Serial.println("DEBUG: try again in 5 seconds");
+      // Wait 1 seconds before retrying
+      delay(1000);
+    }
   }
-
-  Serial.print("\nconnecting to mqtt server...");
-
-  while (!mqtt_client.connect("arduino", "public", "public")) {
-    Serial.print(".");
-    delay(1000);
-  }
-
-  Serial.println("\nconnected to mqtt broker!");
-  // mqtt_client.publish("homeassistant/sensor/solar_power_detector_001/config", message.c_str());
 }
 
 void connect_wifi() {
-  Serial.println("checking wifi...");
-  WiFi.begin(ssid, pass);
+  Serial.print("INFO: Connecting to ");
+  WiFi.mode(WIFI_STA);
+  Serial.println(WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.println(WiFi.status());
-    delay(1000);
+    delay(500);
+    Serial.print(".");
   }
-  Serial.print("Connected, IP address: ");
+
+  Serial.println("");
+  Serial.println("INFO: WiFi connected");
+  Serial.println("INFO: IP address: ");
   Serial.println(WiFi.localIP());
 }
+
 
 void setup() {
   pinMode(analogInput, INPUT);
@@ -99,34 +112,31 @@ void setup() {
   display.display();
 
   connect_wifi();
-  connect_mqtt();
+
+  pubsub_client.setServer(MQTT_SERVER_IP, MQTT_SERVER_PORT);
+  pubsub_client.setCallback(callback);
+  //reconnect();
 
   display.clearDisplay();  // Clear the buffer
 }
 
 void loop(void) {
   value = analogRead(analogInput);
+
+  if (!pubsub_client.connected()) {
+    reconnect();
+    publishConfig();
+  }
+  pubsub_client.loop();
+
   vout = ((value - 6) * 3.3) / 1023.0;  // could be 3.3 or 5
   vin = vout / (R2 / (R1 + R2));
   $vin = String(vin);
   Serial.println(value);
 
-  mqtt_client.loop();
-
-  // if (!mqtt_client.connected()) {
-  //   connect_mqtt();
-  // }
-
-  if (millis() - lastMillis > 1000) {
-    lastMillis = millis();
-    if (!mqtt_client.publish("solar_power_detector/voltage/get", $vin)) {
-      Serial.println("Failed to publish");
-    };
-
-    mqtt_client.publish(TOPIC, $vin);  // publish a message roughly every second.
-  }
-
   showonoled();
+  publishData(vin);
+  publishConfig();
   delay(1000);
 }
 
@@ -138,4 +148,3 @@ void showonoled() {
   display.print($vin + F("V") + "\n");
   display.display();
 }
-
