@@ -5,10 +5,12 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP8266WiFi.h>
-// #include <MQTT.h>
-#include "config.h"
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
+
+#include "config.h"
+
+#define MQTT_VERSION MQTT_VERSION_3_1_1
 
 #define SCREEN_WIDTH 128     // OLED display width, in pixels
 #define SCREEN_HEIGHT 32     // OLED display height, in pixels
@@ -33,28 +35,29 @@ int value = 0;
 String $vin = "0";
 unsigned long lastMillis = 0;
 
+String rounded(float val) {
+  char buffer[8];
+  dtostrf(val, 6, 2, buffer);
+  String ret = String(buffer);
+  return ret;
+}
+
 void publishData(float p_voltage) {
-  DynamicJsonDocument doc(200);
-  doc["voltage"] = (String)p_voltage;
 
-  serializeJson(doc, Serial);
-  Serial.println("");
+  String message = String(p_voltage, 2);
 
-  char data[200];
-  serializeJson(doc, data);
-
-  pubsub_client.publish(MQTT_SENSOR_TOPIC, data, true);
+  pubsub_client.publish(SENSOR_TOPIC, message.c_str(), true);
   yield();
 }
 
 void publishConfig() {
-  int len = CONFIG_MESSAGE.length();
-  char arrMsg[len];
-  CONFIG_MESSAGE.toCharArray(arrMsg, len);
 
-  if (!pubsub_client.publish(CONFIG_PATH, arrMsg, true)) {
-    Serial.println("Unable to publish config");
+  // CONFIG_PATH
+  if (!pubsub_client.publish(CONFIG_PATH, CONFIG_MESSAGE_1.c_str(), true)) {
+    Serial.println("Unable to publish config 1");
+    Serial.print(pubsub_client.state());
   };
+
   yield();
 }
 
@@ -69,6 +72,7 @@ void reconnect() {
     Serial.println("INFO: Attempting MQTT connection...");
     // Attempt to connect
     if (pubsub_client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD)) {
+      pubsub_client.publish(STATUS_PATH, "online", true);
       Serial.println("INFO: connected");
     } else {
       Serial.print("ERROR: failed, rc=");
@@ -113,9 +117,12 @@ void setup() {
 
   connect_wifi();
 
+  if (!pubsub_client.setBufferSize(512)) {
+    Serial.println("Could not increase buffer size");
+  };
+
   pubsub_client.setServer(MQTT_SERVER_IP, MQTT_SERVER_PORT);
   pubsub_client.setCallback(callback);
-  //reconnect();
 
   display.clearDisplay();  // Clear the buffer
 }
@@ -136,7 +143,7 @@ void loop(void) {
 
   showonoled();
   publishData(vin);
-  publishConfig();
+
   delay(1000);
 }
 
